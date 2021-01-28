@@ -1,0 +1,229 @@
+---
+title: "Option Pricing using Monte Carlo Simulation"
+author: "Ayushi Yadav"
+date: "21/11/2020"
+output:
+  html_document: default
+  pdf_document: default
+extra_dependencies: amsmath
+---
+
+## INTRODUCTION
+Options are financial instruments giving the holder the right to buy or sell the option at the Strike or Exercise price without imposing the obligation to buy or sell the option. Parties entering an option contract agree to transact an asset at a specified price before a future date. The  contracts have a specific expiration date by which the option must be exercised. Call options allow the holder to buy the asset at a stated price within a specific time frame where as Put options allow the holder to sell the asset at a stated price within a specific time frame. These versatile financial instruments provide the owner the ability to hedge risk from adverse market changes on assets with floating value and potentially offset losses.   
+
+$$S(t+\delta t)=S_{t}factor\\
+where,\\
+factor =  exp[(r-\frac{\sigma ^{2}}{2})\delta t+\sigma \epsilon \sqrt{\delta t}]$$
+
+### Exotic Options
+Exotic Options are categories of Option Contracts with non-standard structures and features. Exotic options are different from regular options in their expiration dates, exercise prices, payoffs, and underlying assets. All the features make the valuation of exotic options more sophisticated relative to the valuation of plain-vanilla  options (e.g., American or European options)
+
+$\underline{\mathbf{Lookback \space Options}}\\$
+Lookback options are an interesting example of path dependent options as in their case frequency of observation impacts the final outcome. These options are of 2 types - Floating lookback and Fixed lookback. The $\underline{\mathbf{Floating\space Lookback}}$ options do not use strike price like regular options, instead the minimum or maximum price of the stock during a specified time depending on the call or put exercise type. At exercise of option, the holder of the the look back call option has the ability to use the minimum price of the stock during the holding period. Similarly, the holder of the the look back put option has the ability to use the maximum price of the stock during the holding period at exercise. A feature that determines the value of the option is the frequency of measuring the stock price. The greater the frequency of measurement, the more likely it is to pick up the changes in the price, and therefore the greater the value of lookback option. 
+
+$$Floating\space Lookback\space Option\space Payoff = \begin{cases}
+    \ max(0,\space S_{t}-S_{minimum}),& \text{Call Option }\\
+    max(0,\space S_{maximum}-S_{t}),              & \text{Put Option}
+\end{cases}$$
+
+$\underline{\mathbf{Fixed \space Lookback}}$ options uses the strike price to value the option. At exercise of the call of fixed lookback, instead of the ending stock price as is the case with standard options, the most favorable lookback  is considered to calculate payoffs which for call options would be the maximum stock price. For put instance, the most favorable lookback to calculate payoffs becomes the minimum stock price instead of the ending stock price.
+$$Fixed\space Lookback\space Option\space Payoff = \begin{cases}
+    \ max(0,\space S_{maximum}-K),& \text{Call Option }\\
+    max(0,\space K - S_{minimum}),              & \text{Put Option}
+\end{cases}\\K = Strike\space Price$$
+
+Look back options appear to be most attractive of the exotic options providing good payoff. However, the cost of these options are very expensive (almost twices as expensive) when compared to European options and the potential profits are often nullified by the costs.
+
+$\underline{\mathbf{Asian \space Options}}\\$
+Asian options are path dependent exotic options. This means that the payoff of the option depends on the average price or the path that the asset takes over the life of the option and not just on the final or terminal value of the asset. The report calculates the average price of Asian options using both Arithmetic and Geometric mean.
+$$Asian\space Option\space Payoff = \begin{cases}
+    \ max(0,\space S_{avg}-K),& \text{Call Option }\\
+    max(0,\space K-S_{avg}),              & \text{Put Option}
+\end{cases}$$
+
+$\underline{\mathbf{Asset \space or \space Nothing}}\\$
+“Asset-or-nothing” options are a type of binary or digital options providing a fixed payoff when executed in the money. These options do not allow the holder to take a poition on the underlying asset at all, instead they deliver a predetermined payout or 0, as the name suggests. In the call instance the holder of the option receives a fixed payout after the underlying asset exceeds the predetermined threshold or strike price. Similarly for a put instance, a fixed payoff is received  by the holder of the option if the price of the underlying asset is below the strike price on the option's expiration date.
+
+$$Asset \space Or\space Nothing\space Payoff = \begin{cases}
+    \ S*e^{-q(T-t)}N(d_{1}),& \text{Call Option }\\
+    S*e^{-q(T-t)}N(-d_{1}),              & \text{Put Option}
+\end{cases}\\where, \space d1 =  \frac{ln\frac{S}{K}\space+(r\space+\space\frac{\sigma^{2}}{2}(T-t))}{\sigma \sqrt{T-t}}\\ N(x)\space is\space the\space standard\space normal\space cumulative\space distribution\space function.\\ q \space is\space continuously\space compounded\space dividend\space yield$$
+
+## Scope of Analysis
+There are various Option Pricing Models such as the Binomial Pricing Model or the Black Scholes Model. This report aims to effectively value the different types of exotic options (Specifically 5), assuming stocks as the underlying asset class instance, using Monte Carlo simulations. The possible future stock prices are simulated and then they are used to find the discounted expected option payoffs.Following the aim of the report functions are developed in r to $\\1. Generate\space simulated\space stock\space price \\ 2. Value\space the\space exotic\space options\space for\space call\space or\space put\space instances.$ The results are presented in a unified data frame to view ooption values side by side.
+
+## Analysis Methodology
+### Initial Setup
+Before moving to developing the functions, the relevant packages need to be loaded into the R environment. The zeallot package is used to return multiple values from a function in a proper format.
+
+```{r message = FALSE}
+library(zeallot)
+```
+
+
+### Function 1: Generating Stock Prices
+To generate the stock prices a function is developed under that name taking initial stock price at time 0 or current stock price, Time to maturity for the option, number of steps in calculation, sigma or standard deviation of the underlying asset, interest rate, iterations of the simulation and seed value. Firstly, the time internal per step is calculated by dividing maturity(T) by number of steps(n_steps). Total number of variables are calculated by multiplying the simulation's iterations with the number of steps. The set.seed() function is used to set the initial seed value taking seed parameter as its attribute. The next step involves generating random numbers equal to the amount of number of total variables using the rnorm() function which generates normally distributes random numbers. The results are stored in a vector which is used to create a matrix of sample numbers with number of rows equal to iterations of the simulation and number of columns equal to n_steps in calculation. To convert the variables into multiplicative factors, the Weiner process formula is used. Factor is calculated with the help of the above mentioned formula with the generated matrix as epsilons. Cumulative product of the factors is calculated using the cumprod function and applied to the matrix elements with the help pf the apply() function. The resulting factor product is multiplied with the initial stock price to create the price path.
+The values for the end price of stock simulations is extracted from the stock price matrix and stored in end_price variable, applying the the mean() function on which gives the mean end price.
+The max and the min function are applied to the matrix elements by using the apply() function. The average maximum and minimum prices are calculated by using the mean() function on the former variables(max_price and min_price). The function returns result variable containing output metrics stored in a list.
+
+```{r}
+Generate_Stock_Price <- function(S0=20, T=0.25, n_steps=20, sigma=0.4, int_rate=0.03, iterations=1000, seed=12)
+{
+ t <- T/n_steps #time interval per step
+ n_vars <- n_steps*iterations
+ set.seed(seed)
+ sampling <- as.vector(rnorm(n=n_vars, m=0, sd=1)) #generating random numbers
+ sample_mat <- matrix(sampling, nrow = iterations, ncol = n_steps)    
+ 
+ #--------multiplicative factor of the equation---------#
+ factors_temp <- exp((int_rate-.5*sigma^2)*t+sigma*sqrt(t)*sample_mat)
+ # applying the factor to each row and calculating cumulative returns
+ factors <- t(apply(factors_temp, 1, cumprod))
+ 
+ stk_price <- factors*S0
+ 
+ end_price <- stk_price[,ncol(stk_price)]
+ end_price_mean <- mean(end_price)
+ 
+ max_price <- apply(stk_price, 1, max)
+ max_mean <- mean(max_price)
+  
+ min_price <- apply(stk_price, 1, min)
+ min_mean <- mean(min_price)
+ 
+ result_list <- list(stk_price, end_price_mean, max_mean, min_mean) #returning multiple arguments
+ return(result_list)
+}
+```
+
+
+### Function 2: Estimating Option Price
+The Option_Price_Estimate function takes same parameters as the above function in addition to an input for strike price, option type - call or put, and category of option. To use the results from the above function, it is called and stored in a separate variable. The stock price matrix is extracted from the uptput list to calculate the end price, maximum and minimum price of stocks, much similar to the above function. A factor for present value is calculated and stored in pv_factor variable to be used in further calculations of  present values for option categories. Different categories of options have different formula and require different calculations. The code achieves this with the help of the nested if statements. The payoff formulas mentioned above for each option instance(call or put) of a categories are coded using the ifelse list comprehension statements and executed in the inner if statement while the outer if statements handles the exotic categories of options. The payoffs are calculated similarly for each exotic category except for asset or nothing which has a fixed payout. In each instance, the simulated payoffs are multiplied by the PV factor to give the present values of the option, taking the mean of which will give the value of option. 
+
+To calculate the $\underline{\mathbf{Asset \space or \space Nothing}}\\$ option value, a similar nested if methodology is used as with the above exotic categories. The difference arises in the payoff formula. The factor d1 is coded in and stored in the d1 variable. The pnorm() is applied on d1 and -d1  for call and put respectively, to  return the cumulative value of the standard normal distribution and the result is multiplied with the Stock price to give the fixed payout of the option for both call and put instances.
+
+
+```{r}
+Option_Price_Estimate <- function(S0=20, T=0.25, n_steps=20, sigma=0.4, int_rate=0.03, iterations=1000, seed=12, option, strike_price=20, category)
+{
+  call_fn1 <- Generate_Stock_Price(S0, T, n_steps, sigma, int_rate, iterations, seed) #calling function 1
+  stk_price <- call_fn1[[1]] #extracting stock price matrix from function 1 return values.
+  end_price <- stk_price[,ncol(stk_price)]
+  max_price <- apply(stk_price, 1, max)
+  min_price <- apply(stk_price, 1, min)
+  t <- T/n_steps #time interval per step
+  
+  pv_factor <- exp(-int_rate*T) #Calculating Present Value Factor
+
+  #---------------calculating float lookback option----------------#
+    if (category == "floatlookback") {
+      if (option == "call") {
+        payoff1 <- ifelse(end_price > min_price, end_price - min_price, 0)
+        floatlookback <- pv_factor * payoff1
+        option_value <- mean(floatlookback)}
+      
+      else if (option == "put") {
+        payoff1 <- ifelse(end_price < max_price, max_price - end_price, 0)
+        floatlookback <- pv_factor * payoff1
+        option_value <- mean(floatlookback)}
+    } 
+    #----------------calculating fixed lookback option---------------#
+    if (category == "fixedlookback") {
+      if (option == "call") {
+        payoff2 <- ifelse(max_price > strike_price, max_price - strike_price, 0)
+        fixedlookback <- pv_factor * payoff2
+        option_value <- mean(fixedlookback)}
+      
+      else if (option == "put") {
+        payoff2 <- ifelse(strike_price > min_price, strike_price - min_price, 0)
+        fixedlookback <- pv_factor * payoff2
+        option_value <- mean(fixedlookback)}
+    } 
+    #----------------calculating asian arithmetic option---------------#
+    if (category == "asianarithmetic") {
+      mean_stk_price <- apply(stk_price, 1, mean)
+      if (option == "call") {
+        payoff3 <- ifelse(mean_stk_price > strike_price, mean_stk_price - strike_price, 0)
+        AsianArithmetic <- pv_factor * payoff3                 
+        option_value <- mean(AsianArithmetic)}
+      
+      else if (option == "put") {
+        payoff3 <- ifelse(strike_price > mean_stk_price, strike_price - mean_stk_price, 0)    
+        AsianArithmetic <- pv_factor * payoff3                 
+        option_value <- mean(AsianArithmetic)}
+    } 
+    #----------------calculating asian geometric option---------------#
+    if (category == "asiangeometric") {
+      geo_mean <- function(x, na.rm=TRUE){
+        exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))}
+      geo_mean_stk <- apply(stk_price, 1, geo_mean)
+      if (option == "call") {
+        payoff4 <- ifelse(geo_mean_stk > strike_price, geo_mean_stk - strike_price, 0)    
+        AsianGeo <- pv_factor * payoff4                 
+        option_value <- mean(AsianGeo)}
+      
+      else if (option == "put") {
+        fac4 <- ifelse(strike_price > geo_mean_stk, strike_price - geo_mean_stk, 0)    
+        AsianGeo <- pv_factor * fac4                
+        option_value <- mean(AsianGeo)}
+    }
+    #----------------calculating asset or nothing option---------------#
+    if (category == "assetornothing") {
+      if (option == "call") {
+        d1 <- (log(S0/strike_price) + (int_rate + sigma^2/2)*T-t) / (sigma*sqrt(T-t))
+        option_value <- S0 * pnorm(d1)}
+      
+      else if (option == "put") {
+        d1 <- (log(S0/strike_price) + (int_rate + sigma^2/2)*T-t) / (sigma*sqrt(T-t))
+        option_value <- S0 * pnorm(-d1)}
+    } 
+  
+  returnlist2 <- list(S0, T, n_steps, sigma, int_rate, iterations, seed, option, strike_price, category, option_value)  
+  return(returnlist2)
+}
+
+```
+
+### Running the functions
+The functions are run taking the default parameters as inputs. 
+
+```{r}
+c(stk_price, end_price_mean, max_mean, min_mean)%<-%Generate_Stock_Price(20, 0.25, 20, 0.4, 0.03, 1000, 12)
+print(head(stk_price, n=2))
+
+print(end_price_mean)
+print(max_mean)
+print(min_mean)
+```
+The category variable is defined containing a list of strings for all exotic options. Similarly, the option variable is defined as  a list of call and put strings to generate output for both the instances. An empty dataframe is defined with column names for  all the return variables from the  second function. To view a unified data frame with call and put option values for all the exotic options, the second function is run inside a nested for loop. The first for loop takes $i^{th}$ exotic option from category list and moves on to the second loop to select the call or put option and displays the result in the final_df data frame.
+```{r}
+category <- list("floatlookback", "fixedlookback", "asianarithmetic", "asiangeometric", "assetornothing")
+option <- list("call","put")
+final_df <- data.frame("Stock_Price", "Time to Maturity", "Steps", "Standard Deviation", "Interest Rate", "Iterations", "Seed_Value", "Option", "Strike Price", "Category", "Option Price")
+
+for (i in category){
+  for(j in option){
+    output <- Option_Price_Estimate(, , , , , , , j, , i)
+    final_df[nrow(final_df) + 1,] <- output
+  }
+}
+print(final_df)
+
+
+```
+## Results and Discussion
+Option Pricing has numerous use cases, especially in the field of equity valuation. Although, a number of limitations are also associated with this financial instrument. No model is perfect and being aware of the limitations can help avoid mistakes and make informed trading decisions. The limitations of Option Pricing in general are
+$1.) The\space underlying\space asset\space may\space not\space be\space traded,\space which\space making\space it\space difficult\space to estimate\space value \space and variance\space.\\$
+$2.) The\space price\space of\space the\space asset\space may\space not\space follow\space a\space continuous\space process,\space which\space makes\space it\space difficult\space to\space apply\space option\space pricing\space models\space (like\space the\space Black\space Scholes)\space that\space use\space this\space assumption.\\$
+$3.) The\space variance\space may\space not\space be\space known\space and\space may\space change\space over\space the\space life\space of\space the\space option,\space which\space can\space make\space the\space option\space valuation\space more\space complex.\\$
+$4. Exercise\space may\space not\space be\space instantaneous\space, which\space will\space affect\space the\space value\space of\space the\space option.\\$
+$\\$
+The Black-Scholes model used for pricing the Asset or Nothing Option assumes constant values for risk free rate of return and volatility over the option duration— which is not the case in the real world. The model also assumes no early exercise, making it unsuitable for American options. There are other such operational issue with the model.  
+
+
+## References
+[1] Exotic Options - Definition, Characteristics, and Types. (2019, March 12). Retrieved November 21, 2020, from https://corporatefinanceinstitute.com/resources/knowledge/trading-investing/exotic-options/
+
+[2] Seth, S. (2020, August 28). Circumventing the Limitations of Black-Scholes. Retrieved November 21, 2020, from https://www.investopedia.com/articles/active-trading/041015/how-circumvent-limitations-blackscholes-model.asp
+
+[3] Damodaran, A. (n.d.). Option Pricing Theory and Applications [Pdf].
